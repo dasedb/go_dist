@@ -1,6 +1,7 @@
 package example_pkg
 
 import (
+	"fmt"
 	"github.com/BurntSushi/toml"
 	"os"
 	"testing"
@@ -16,7 +17,8 @@ func TestCfg(t *testing.T) {
 		},
 		IsClient: true,
 	}
-	file, err := os.OpenFile("/tmp/cfg.toml", os.O_WRONLY|os.O_CREATE, 0600)
+	cfg_path := fmt.Sprintf("%s/cfg.toml", os.TempDir())
+	file, err := os.OpenFile(cfg_path, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		panic(err)
 	}
@@ -27,7 +29,7 @@ func TestCfg(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	if _, err := toml.DecodeFile("/tmp/cfg.toml", &cfg); err != nil {
+	if _, err := toml.DecodeFile(cfg_path, &cfg); err != nil {
 		panic(err)
 	}
 }
