@@ -2,6 +2,7 @@ package example_pkg
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -42,13 +43,13 @@ func (s *WatchServer) Serve() {
 	addr := fmt.Sprintf(":%d", s.port)
 	e := http.ListenAndServe(addr, s.srvMux)
 	if e != nil {
-		panic(e.Error())
+		log.Println(e.Error())
 	}
 }
 
 func (s *WatchServer) Close() {
 	e := s.listener.Close()
 	if e != nil {
-		panic(e.Error())
+		log.Println(e.Error())
 	}
 }

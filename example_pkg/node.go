@@ -14,25 +14,26 @@ func NewNode(cfgPath string) {
 		panic(err)
 	}
 
-	node(cfg.Name, cfg.Name2Addr(), cfg.IsClient, nil)
+	node(cfg.Name, cfg.Name2Addr(), cfg.IsClient, nil, nil)
 }
 
 func node(
 	name string,
 	name2addr map[string]Address,
 	client bool,
-	ch *chan bool,
+	chInputDone *chan bool,
+	chServerStop *chan *sync.WaitGroup,
 ) {
 	thisAddr := name2addr[name]
 	if client {
 		go func() {
 			getInputAndSend(name, name2addr)
-			if *ch != nil {
-				*ch <- true
+			if *chInputDone != nil {
+				*chInputDone <- true
 			}
 		}()
 	}
-	runServer(name, thisAddr.Port)
+	runServer(name, thisAddr.Port, chServerStop)
 }
 
 func getInputAndSend(
@@ -65,8 +66,8 @@ func runClient(name string, namePeer string, address string, message string) {
 	}
 }
 
-func runServer(name string, port uint16) {
-	err := server(name, port)
+func runServer(name string, port uint16, ch *chan *sync.WaitGroup) {
+	err := server(name, port, ch)
 	if err != nil {
 		log.Fatal(err)
 	}

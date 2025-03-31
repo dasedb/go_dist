@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -55,6 +56,8 @@ func runNodes(
 
 	name2addr := make(
 		map[string]Address)
+	name2chan := make(
+		map[string]chan *sync.WaitGroup)
 	for i := 0; i < n; i++ {
 		name := fmt.Sprintf("n_%d", i+1)
 		ip := "127.0.0.1"
@@ -63,6 +66,7 @@ func runNodes(
 			IP:   ip,
 			Port: port,
 		}
+		name2chan[name] = make(chan *sync.WaitGroup, 1)
 	}
 
 	chDone := make(chan bool, 1)
@@ -71,11 +75,19 @@ func runNodes(
 		isClient := name == "n_1"
 		go func(nodeName string,
 			name2addr map[string]Address,
+			name2chan map[string]chan *sync.WaitGroup,
 			isClient bool) {
-			node(name, name2addr, isClient, &chDone)
-		}(name, name2addr, isClient)
+			ch := name2chan[name]
+			node(name, name2addr, isClient, &chDone, &ch)
+		}(name, name2addr, name2chan, isClient)
 	}
 	_ = <-chDone
+	for _, ch := range name2chan {
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		ch <- wg
+		wg.Wait()
+	}
 }
 
 func FuzzMessage(f *testing.F) {

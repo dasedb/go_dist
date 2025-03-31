@@ -7,29 +7,39 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 )
 
-func server(name string, port uint16) error {
+func server(name string, port uint16, ch *chan *sync.WaitGroup) error {
 	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Println("Error listening:", err.Error())
 		return err
 	}
-	defer func(listen net.Listener) {
-		_ = listen.Close()
+	wgServerClosed := &sync.WaitGroup{}
+	wgServerClosed.Add(1)
+	defer wgServerClosed.Done()
+
+	go func(listen net.Listener) {
+		if ch != nil {
+			wg0 := <-*ch
+			_ = listen.Close()
+			wgServerClosed.Wait()
+			wg0.Done()
+		}
 	}(listen)
 
 	log.Printf("Server %s is listening on port %d...\n", name, port)
-
 	for {
 		conn, err := listen.Accept()
 		if err != nil {
 			log.Println("Error accepting:", err.Error())
-			continue
+			break
 		}
-
 		go handleClient(name, conn)
 	}
+
+	return nil
 }
 
 func handleClient(name string, conn net.Conn) {
