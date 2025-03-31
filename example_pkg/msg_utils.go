@@ -11,36 +11,43 @@ import (
 func readMsg(name string, reader *bufio.Reader, msg proto.Message) error {
 	// 读取消息长度
 	lenBuf := make([]byte, 4)
-	_, err := io.ReadFull(reader, lenBuf)
-	if err != nil {
-		if err != io.EOF {
-			log.Println(name, "error reading message length:", err.Error())
+	_, e1 := io.ReadFull(reader, lenBuf)
+	if e1 != nil {
+		if e1 != io.EOF {
+			log.Println(name, "error reading message length:", e1.Error())
 		}
-		return err
+		return e1
 	}
 
 	msgLen := int(lenBuf[0])<<24 | int(lenBuf[1])<<16 | int(lenBuf[2])<<8 | int(lenBuf[3])
 	msgBuf := make([]byte, msgLen)
 
 	// 读取消息内容
-	_, err = io.ReadFull(reader, msgBuf)
-	if err != nil {
-		log.Println(name, "error reading message content:", err.Error())
-		return err
+	_, e2 := io.ReadFull(reader, msgBuf)
+	if e2 != nil {
+		log.Println(name, "error reading message content:", e2.Error())
+		return e2
 	}
 
 	// 反序列化Protobuf消息
 
-	err = proto.Unmarshal(msgBuf, msg)
-	if err != nil {
-		log.Println(name, "error unmarshalling message:", err.Error())
-		return err
+	e3 := proto.Unmarshal(msgBuf, msg)
+	if e3 != nil {
+		log.Println(name, "error unmarshalling message:", e3.Error())
+		return e3
 	}
+
+	e4 := FuzzMsg(msg)
+	if e4 != nil {
+		log.Println(name, "error fuzzing message:", e4.Error())
+		return e4
+	}
+
 	return nil
 }
 
 func writeMsg(name string, writer *bufio.Writer, msg proto.Message) error {
-	// 将消息内容回显给客户端
+	// 将消息内容回显给客户端/服务器
 
 	buf, err := proto.Marshal(msg)
 	if err != nil {

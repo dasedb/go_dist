@@ -33,7 +33,12 @@ https://go.dev/doc/install
 
 在运行 go generate 之前，确保protoc, protoc-gen-go已安装.
 
+#### 執行fuzz testing
+
+    go test -fuzz=FuzzMessage -parallel=1
+
 #### 构建main
 
     cd main
     go build
+

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
-	"time"
 )
 
 func watchServer(port uint16) WatchContext {
@@ -48,8 +47,9 @@ func watchServer(port uint16) WatchContext {
 	return context
 }
 
-func TestNode(t *testing.T) {
-	n := 10 // N个节点
+func runNodes(
+	n int, // N个节点
+) {
 	context := watchServer(9099)
 	setWatchCtx(&context)
 
@@ -76,5 +76,15 @@ func TestNode(t *testing.T) {
 		}(name, name2addr, isClient)
 	}
 	_ = <-chDone
-	time.Sleep(time.Duration(10) * time.Second)
+}
+
+func FuzzMessage(f *testing.F) {
+	f.Fuzz(func(
+		t *testing.T,
+		n int64,
+	) {
+		t.Log("fuzz testing seed ", n)
+		CreateFuzz(n)
+		runNodes(10)
+	})
 }
