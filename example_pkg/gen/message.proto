@@ -7,3 +7,6 @@ message MyMessage {
   string content = 1;
 }
 
+message Name {
+  string name = 1;
+}

@@ -10,7 +10,12 @@ import (
 	"sync"
 )
 
-func server(name string, port uint16, ch *chan *sync.WaitGroup) error {
+func server(
+	name string,
+	port uint16,
+	ch *chan *sync.WaitGroup,
+	name2addr map[string]Address,
+) error {
 	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Println("Error listening:", err.Error())
@@ -36,6 +41,7 @@ func server(name string, port uint16, ch *chan *sync.WaitGroup) error {
 			log.Println("Error accepting:", err.Error())
 			break
 		}
+
 		go handleClient(name, conn)
 	}
 
@@ -57,9 +63,18 @@ func _handleClient(name string, conn net.Conn) error {
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
+	nameMsg := &gen.Name{}
+	err := readMsg(name, "", reader, nameMsg)
+	if err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return err
+	}
+	namePeer := nameMsg.Name
 	for {
 		msg := &gen.MyMessage{}
-		err := readMsg(name, reader, msg)
+		err := readMsg(name, namePeer, reader, msg)
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -72,7 +87,7 @@ func _handleClient(name string, conn net.Conn) error {
 		watchAppendMessage(fmt.Sprintf("%s %s", name, msg))
 		// 将消息内容回显给客户端
 		response := &gen.MyMessage{Content: msg.Content}
-		err = writeMsg(name, writer, response)
+		err = writeMsg(name, namePeer, writer, response)
 		if err != nil {
 			return err
 		}

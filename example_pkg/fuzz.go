@@ -6,15 +6,18 @@ import (
 	"log"
 	"math/rand"
 	"sync"
-	"testing"
 )
 
 type FuzzContext struct {
+	mu         *sync.Mutex
+	name2queue map[string]*NodeQueue
+	rand       *rand.Rand
+}
+
+type NodeQueue struct {
 	mu    *sync.Mutex
 	cond  *sync.Cond
-	f     *testing.F
 	queue PriorityQueue
-	rand  *rand.Rand
 }
 
 // An Item is something we manage in a priority queue.
@@ -70,10 +73,9 @@ func CreateFuzz(seed int64) {
 	source := rand.NewSource(seed)
 	mu := new(sync.Mutex)
 	_FuzzContext = &FuzzContext{
-		queue: make(PriorityQueue, 0),
-		mu:    mu,
-		cond:  sync.NewCond(mu),
-		rand:  rand.New(source),
+		mu:         mu,
+		rand:       rand.New(source),
+		name2queue: make(map[string]*NodeQueue),
 	}
 }
 
@@ -101,43 +103,60 @@ func FuzzGen(n uint, priority uint) FuzzInfo {
 	return info
 }
 
-func FuzzMsg(msg proto.Message) error {
+func FuzzMsg(name string, msg proto.Message) error {
 	if _FuzzContext != nil {
 		bytes, e1 := proto.Marshal(msg)
 		if e1 != nil {
 			return e1
 		}
+		var queue *NodeQueue = nil
 		_FuzzContext.mu.Lock()
+		if q, ok := _FuzzContext.name2queue[name]; ok {
+			queue = q
+		} else {
+			mu := new(sync.Mutex)
+			cond := sync.NewCond(mu)
+			queue = &NodeQueue{
+				mu:    mu,
+				cond:  cond,
+				queue: make(PriorityQueue, 0),
+			}
+
+			_FuzzContext.name2queue[name] = queue
+		}
+		_FuzzContext.mu.Unlock()
+
+		queue.mu.Lock()
 		info := FuzzGen(uint(_FuzzContext.rand.Uint32()), uint(_FuzzContext.rand.Uint32()))
 		if info.repeat {
 			log.Println("repeat message", msg)
-			_FuzzContext.queue.Push(&Item{value: bytes, priority: 0})
-			_FuzzContext.queue.Push(&Item{value: bytes, priority: info.priority})
+			queue.queue.Push(&Item{value: bytes, priority: 0})
+			queue.queue.Push(&Item{value: bytes, priority: info.priority})
 		} else if info.delay {
 			log.Println("delay message", msg)
-			_FuzzContext.queue.Push(&Item{value: bytes, priority: info.priority})
+			queue.queue.Push(&Item{value: bytes, priority: info.priority})
 		} else if !info.lost {
-			_FuzzContext.queue.Push(&Item{value: bytes, priority: 0})
+			queue.queue.Push(&Item{value: bytes, priority: 0})
 		} else {
 			log.Println("lost message", msg)
 		}
-		_FuzzContext.mu.Unlock()
-		_FuzzContext.cond.Broadcast()
+		queue.mu.Unlock()
+		queue.cond.Broadcast()
 		empty := true
 		for empty {
-			_FuzzContext.mu.Lock()
-			empty = _FuzzContext.queue.Len() == 0
+			queue.mu.Lock()
+			empty = queue.queue.Len() == 0
 			if empty {
-				_FuzzContext.cond.Wait()
+				queue.cond.Wait()
 			} else {
-				item := _FuzzContext.queue.Pop().(*Item)
+				item := queue.queue.Pop().(*Item)
 				_bytes := item.value
 				e2 := proto.Unmarshal(_bytes, msg)
 				if e2 != nil {
 					return e2
 				}
 			}
-			_FuzzContext.mu.Unlock()
+			queue.mu.Unlock()
 		}
 		return nil
 	} else {

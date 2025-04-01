@@ -8,13 +8,13 @@ import (
 	"log"
 )
 
-func readMsg(name string, reader *bufio.Reader, msg proto.Message) error {
+func readMsg(destName string, namePeer string, reader *bufio.Reader, msg proto.Message) error {
 	// 读取消息长度
 	lenBuf := make([]byte, 4)
 	_, e1 := io.ReadFull(reader, lenBuf)
 	if e1 != nil {
 		if e1 != io.EOF {
-			log.Println(name, "error reading message length:", e1.Error())
+			log.Println(destName, "error reading message length:", e1.Error())
 		}
 		return e1
 	}
@@ -25,7 +25,7 @@ func readMsg(name string, reader *bufio.Reader, msg proto.Message) error {
 	// 读取消息内容
 	_, e2 := io.ReadFull(reader, msgBuf)
 	if e2 != nil {
-		log.Println(name, "error reading message content:", e2.Error())
+		log.Println(destName, "error reading message content:", e2.Error())
 		return e2
 	}
 
@@ -33,25 +33,25 @@ func readMsg(name string, reader *bufio.Reader, msg proto.Message) error {
 
 	e3 := proto.Unmarshal(msgBuf, msg)
 	if e3 != nil {
-		log.Println(name, "error unmarshalling message:", e3.Error())
+		log.Println(destName, "error unmarshalling message:", e3.Error())
 		return e3
 	}
-
-	e4 := FuzzMsg(msg)
-	if e4 != nil {
-		log.Println(name, "error fuzzing message:", e4.Error())
-		return e4
+	if namePeer != "" {
+		e4 := FuzzMsg(destName, msg)
+		if e4 != nil {
+			log.Println(destName, "error fuzzing message:", e4.Error())
+			return e4
+		}
 	}
-
 	return nil
 }
 
-func writeMsg(name string, writer *bufio.Writer, msg proto.Message) error {
+func writeMsg(srcName string, namePeer string, writer *bufio.Writer, msg proto.Message) error {
 	// 将消息内容回显给客户端/服务器
 
 	buf, err := proto.Marshal(msg)
 	if err != nil {
-		log.Println(name, "error marshalling response:", err.Error())
+		log.Println(srcName, "error marshalling response:", err.Error())
 		return err
 	}
 
@@ -64,15 +64,18 @@ func writeMsg(name string, writer *bufio.Writer, msg proto.Message) error {
 	lenBuf[3] = byte(msgLen)
 	_, err = writer.Write(lenBuf)
 	if err != nil {
-		log.Println(name, "error writing response length:", err.Error())
+		log.Println(srcName, "error writing response length:", err.Error())
 		return err
 	}
 
 	// 发送消息内容
 	_, err = writer.Write(buf)
 	if err != nil {
-		log.Println(name, "error writing response content:", err.Error())
+		log.Println(srcName, "error writing response content:", err.Error())
 		return err
+	}
+	if namePeer != "" {
+		// TODO ... cache this message for fuzz
 	}
 
 	err = writer.Flush()

@@ -36,17 +36,23 @@ func client(name string, namePeer string, address string, message string) error 
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
+	nameMsg := &gen.Name{Name: name}
+	err = writeMsg(name, "", writer, nameMsg)
+	if err != nil {
+		return err
+	}
+
 	// 创建Protobuf消息
 	msg := &gen.MyMessage{Content: message}
 
 	watchAppendMessage(fmt.Sprintf("%s %s", name, msg))
-	err = writeMsg(name, writer, msg)
+	err = writeMsg(name, namePeer, writer, msg)
 	if err != nil {
 		return err
 	}
 
 	// 读取响应
-	err = readMsg(name, reader, msg)
+	err = readMsg(name, namePeer, reader, msg)
 	if err != nil {
 		return err
 	}

@@ -33,7 +33,7 @@ func node(
 			}
 		}()
 	}
-	runServer(name, thisAddr.Port, chServerStop)
+	runServer(name, thisAddr.Port, chServerStop, name2addr)
 }
 
 func getInputAndSend(
@@ -66,8 +66,8 @@ func runClient(name string, namePeer string, address string, message string) {
 	}
 }
 
-func runServer(name string, port uint16, ch *chan *sync.WaitGroup) {
-	err := server(name, port, ch)
+func runServer(name string, port uint16, ch *chan *sync.WaitGroup, name2addr map[string]Address) {
+	err := server(name, port, ch, name2addr)
 	if err != nil {
 		log.Fatal(err)
 	}
